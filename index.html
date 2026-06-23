@@ -89,6 +89,25 @@
   .json-buttons button { font-size: 12px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
   .json-msg { font-size: 11px; color: var(--muted); }
   .json-area { width: 100%; height: 180px; background: #1c1c1c; color: #cfcfcf; border: 1px solid var(--line); border-radius: 7px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 8px; resize: vertical; }
+
+  /* coherence heads-up display (visible only when the sidebar is collapsed) */
+  #coherence-hud {
+    position: absolute; top: 56px; right: 16px; z-index: 2; width: 220px;
+    background: rgba(36, 36, 36, 0.82); border: 1px solid var(--line); border-radius: 9px;
+    padding: 10px 12px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    opacity: 0; transform: translateY(-4px); pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  #shell.collapsed #coherence-hud { opacity: 1; transform: none; }
+  .hud-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px; }
+  .hud-row { display: grid; grid-template-columns: 9px minmax(0, 1fr) 60px 30px; align-items: center; gap: 7px; margin-bottom: 6px; }
+  .hud-row:last-child { margin-bottom: 0; }
+  .hud-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .hud-name { font-size: 11px; color: #cfcfcf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hud-bar { position: relative; height: 6px; background: #1c1c1c; border-radius: 3px; overflow: hidden; }
+  .hud-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; border-radius: 3px; transition: width 0.08s linear; }
+  .hud-val { font-size: 10px; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+  .hud-empty { font-size: 11px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -103,6 +122,12 @@
     </div>
     <button id="sidebar-toggle" title="toggle sidebar"></button>
     <div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+    <!-- Compact at-a-glance coherence readout, shown only while the sidebar is
+         collapsed (so you never lose sight of every layer's R at once). -->
+    <div id="coherence-hud">
+      <div class="hud-title">layer coherence</div>
+      <div class="hud-rows" id="hud-rows"></div>
+    </div>
   </div>
   <aside id="sidebar"><div id="sidebar-body"></div></aside>
 </div>

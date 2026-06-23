@@ -64,14 +64,20 @@
       }
     }
 
-    /* Faint guide ring per layer, thicker when that layer is coherent. */
+    /* Each layer's ring brightens and thickens with its coherence, and picks up
+     * a soft glow when highly locked — so the ring itself reads as coherent, not
+     * only the links drawn between its nodes. */
     for (let li = 0; li < n; li++) {
+      const R = Rs[li];
       ctx.beginPath();
       ctx.arc(cx, cy, radii[li], 0, Math.PI * 2);
-      ctx.strokeStyle = withAlpha(activeLayers[li].color, 0.13);
-      ctx.lineWidth = 2 + Rs[li] * 4;
+      ctx.strokeStyle = withAlpha(activeLayers[li].color, 0.12 + R * 0.7);
+      ctx.lineWidth = 1.5 + R * 4.5;
+      ctx.shadowColor = activeLayers[li].color;
+      ctx.shadowBlur = R * R * 14; // R^2 so only well-locked rings glow
       ctx.stroke();
     }
+    ctx.shadowBlur = 0;
     ctx.lineWidth = 1;
 
     /* Links between near-locked dots within each layer. */
