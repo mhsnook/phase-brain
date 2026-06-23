@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase — oscillator lock prototype</title>
+<style>
+  body {
+    background: #1a1a1a;
+    color: #e8e8e8;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 680px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  p.sub { font-size: 14px; color: #999; margin-top: 0; margin-bottom: 24px; }
+  .row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .row label { font-size: 14px; color: #999; min-width: 130px; }
+  input[type=range] { flex: 1; }
+  .row span { font-size: 14px; font-weight: 500; min-width: 36px; text-align: right; }
+  #state-label { font-size: 13px; color: #999; margin-bottom: 16px; display: block; min-height: 18px; }
+  #canvas-wrap {
+    position: relative;
+    height: 360px;
+    background: #242424;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  canvas { width: 100%; height: 100%; display: block; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: #242424; border-radius: 8px; padding: 16px; }
+  .stat p.label { font-size: 13px; color: #999; margin: 0 0 4px; }
+  .stat p.value { font-size: 24px; font-weight: 500; margin: 0; }
+</style>
+</head>
+<body>
+
+<h1>Phase — oscillator lock prototype</h1>
+<p class="sub">Coupled oscillator nodes simulating memory coherence. Drag the slider down slowly.</p>
+
+<div class="row">
+  <label for="coupling">Coupling strength</label>
+  <input type="range" min="0" max="100" value="100" step="1" id="coupling" />
+  <span id="coupling-out">100</span>
+</div>
+<span id="state-label">All nodes phase-locked — rendered as one coherent self</span>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <p class="label">Nodes present</p>
+    <p class="value" id="nodes-present">12</p>
+  </div>
+  <div class="stat">
+    <p class="label">Nodes locked</p>
+    <p class="value" id="nodes-locked">12</p>
+  </div>
+  <div class="stat">
+    <p class="label">Nodes lost</p>
+    <p class="value" id="nodes-lost">0</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const slider = document.getElementById('coupling');
+  const couplingOut = document.getElementById('coupling-out');
+  const stateLabel = document.getElementById('state-label');
+  const nodesLockedOut = document.getElementById('nodes-locked');
+  const nodesLostOut = document.getElementById('nodes-lost');
+
+  let width, height;
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    width = rect.width;
+    height = rect.height;
+    canvas.width = width * devicePixelRatio;
+    canvas.height = height * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const N = 12;
+  const baseFreq = 0.6;
+  const nodes = [];
+  for (let i = 0; i < N; i++) {
+    nodes.push({
+      angle: (i / N) * Math.PI * 2,
+      phase: Math.random() * Math.PI * 2,
+      naturalFreq: baseFreq + (Math.random() - 0.5) * 0.9,
+      radius: 110
+    });
+  }
+
+  let t = 0;
+  function step(dt) {
+    const K = parseFloat(slider.value) / 100 * 4;
+    const phases = nodes.map(n => n.phase);
+    nodes.forEach((n, i) => {
+      let coupling = 0;
+      for (let j = 0; j < N; j++) {
+        if (j === i) continue;
+        coupling += Math.sin(phases[j] - phases[i]);
+      }
+      coupling = (coupling / N) * K;
+      n.phase += (n.naturalFreq + coupling) * dt;
+    });
+    t += dt;
+  }
+
+  function orderParameter() {
+    let sumX = 0, sumY = 0;
+    nodes.forEach(n => {
+      sumX += Math.cos(n.phase);
+      sumY += Math.sin(n.phase);
+    });
+    return Math.sqrt(sumX * sumX + sumY * sumY) / N;
+  }
+
+  function pairLocked(i, j) {
+    const diff = Math.abs(Math.sin((nodes[i].phase - nodes[j].phase) / 2));
+    return diff < 0.18;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, width, height);
+    const cx = width / 2;
+    const cy = height / 2;
+    const R = orderParameter();
+
+    const lockedSet = new Set();
+    for (let i = 0; i < N; i++) {
+      let locked = 0;
+      for (let j = 0; j < N; j++) {
+        if (i === j) continue;
+        if (pairLocked(i, j)) locked++;
+      }
+      if (locked >= N * 0.5) lockedSet.add(i);
+    }
+
+    const positions = nodes.map((n, i) => {
+      const wobble = (1 - R) * 30 * Math.sin(t * n.naturalFreq + n.angle * 3);
+      const r = n.radius + wobble;
+      const a = n.angle + (1 - R) * 0.5 * Math.sin(n.phase);
+      return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, locked: lockedSet.has(i) };
+    });
+
+    ctx.lineWidth = 1;
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        if (pairLocked(i, j)) {
+          const alpha = 0.15 + R * 0.3;
+          ctx.strokeStyle = 'rgba(140, 130, 230, ' + alpha + ')';
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[j].x, positions[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    positions.forEach((p) => {
+      const pulse = 5 + 2.5 * Math.sin(t * 2 + p.x * 0.01);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, pulse, 0, Math.PI * 2);
+      ctx.fillStyle = p.locked ? '#8c82e6' : '#666';
+      ctx.fill();
+    });
+
+    let lockedCount = 0;
+    nodes.forEach((n, i) => { if (lockedSet.has(i)) lockedCount++; });
+
+    nodesLockedOut.textContent = lockedCount;
+    nodesLostOut.textContent = 0;
+
+    if (R > 0.85) {
+      stateLabel.textContent = 'All nodes phase-locked — rendered as one coherent self';
+    } else if (R > 0.5) {
+      stateLabel.textContent = 'Partial synchrony — some nodes still locked, others drifting';
+    } else if (R > 0.2) {
+      stateLabel.textContent = 'Chimera state — locked and unlocked regions coexist, no clear boundary';
+    } else {
+      stateLabel.textContent = 'Desynchronized — every node still present, none firing together';
+    }
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    step(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  slider.addEventListener('input', () => {
+    couplingOut.textContent = slider.value;
+  });
+})();
+</script>
+
+</body>
+</html>

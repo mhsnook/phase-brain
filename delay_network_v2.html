@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Delay-coupled memory network</title>
+<style>
+  body { background: #1a1a1a; color: #e8e8e8; font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  p.sub { font-size: 14px; color: #999; margin-top: 0; margin-bottom: 24px; }
+  .row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .row label { font-size: 14px; color: #999; min-width: 160px; }
+  input[type=range] { flex: 1; }
+  .row span { font-size: 14px; font-weight: 500; min-width: 40px; text-align: right; }
+  #state-label { font-size: 13px; color: #999; margin-bottom: 16px; display: block; min-height: 18px; }
+  #canvas-wrap { position: relative; height: 340px; background: #242424; border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  canvas { width: 100%; height: 100%; display: block; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: #242424; border-radius: 8px; padding: 16px; }
+  .stat p.label { font-size: 13px; color: #999; margin: 0 0 4px; }
+  .stat p.value { font-size: 24px; font-weight: 500; margin: 0; }
+</style>
+</head>
+<body>
+
+<h1>Delay-coupled memory network</h1>
+<p class="sub">Two modules, fixed long delay between them. Raise frequency past ~5.5 to watch global sync collapse while local sync holds.</p>
+
+<div class="row">
+  <label>Oscillation frequency</label>
+  <input type="range" min="1" max="14" value="2" step="0.5" id="freq" />
+  <span id="freq-out">2.0</span>
+</div>
+
+<span id="state-label">Global synchrony</span>
+
+<div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+
+<div class="stats">
+  <div class="stat"><p class="label">Global sync</p><p class="value" id="global-r">1.00</p></div>
+  <div class="stat"><p class="label">Module A sync</p><p class="value" id="local-a">1.00</p></div>
+  <div class="stat"><p class="label">Module B sync</p><p class="value" id="local-b">1.00</p></div>
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const freqSlider = document.getElementById('freq');
+  const freqOut = document.getElementById('freq-out');
+  const stateLabel = document.getElementById('state-label');
+  const globalROut = document.getElementById('global-r');
+  const localAOut = document.getElementById('local-a');
+  const localBOut = document.getElementById('local-b');
+
+  let width, height;
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    width = rect.width; height = rect.height;
+    canvas.width = Math.max(1, width * devicePixelRatio);
+    canvas.height = Math.max(1, height * devicePixelRatio);
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const NA = 6, NB = 6;
+  const N = NA + NB;
+  const K = 3.0;
+  const HET = 0.3;
+  const DELAY_SAME = 0.015;
+  const DELAY_CROSS = 0.25;
+  const dt = 1 / 60;
+  const HISTORY_LEN = 60;
+
+  function seededRandom(seed) {
+    let s = seed;
+    return function() {
+      s = (s * 9301 + 49297) % 233280;
+      return s / 233280;
+    };
+  }
+
+  let nodes, history, t;
+
+  function initSim() {
+    const rand = seededRandom(7);
+    nodes = [];
+    for (let i = 0; i < N; i++) {
+      nodes.push({
+        module: i < NA ? 'A' : 'B',
+        localIdx: i < NA ? i : i - NA,
+        localCount: i < NA ? NA : NB,
+        phase: rand() * Math.PI * 2
+      });
+    }
+    history = [];
+    const initPhases = nodes.map(n => n.phase);
+    for (let k = 0; k < HISTORY_LEN; k++) history.push(initPhases.slice());
+    t = 0;
+  }
+  initSim();
+
+  function delayFor(i, j) {
+    const sameModule = nodes[i].module === nodes[j].module;
+    const base = sameModule ? DELAY_SAME : DELAY_CROSS;
+    const jitter = HET * base * (0.3 + 0.7 * ((i * 7 + j * 13) % 5) / 5);
+    return base + jitter;
+  }
+
+  function step() {
+    const freq = parseFloat(freqSlider.value);
+    const currentPhases = nodes.map(n => n.phase);
+    const newPhases = new Array(N);
+
+    for (let i = 0; i < N; i++) {
+      let couplingSum = 0;
+      let count = 0;
+      for (let j = 0; j < N; j++) {
+        if (j === i) continue;
+        const eff = delayFor(i, j);
+        let stepsBack = Math.min(Math.round(eff / dt), HISTORY_LEN - 1);
+        const histIdx = HISTORY_LEN - 1 - stepsBack;
+        const delayedPhase = history[histIdx] ? history[histIdx][j] : currentPhases[j];
+        couplingSum += Math.sin(delayedPhase - currentPhases[i]);
+        count++;
+      }
+      const coupling = (couplingSum / count) * K;
+      newPhases[i] = currentPhases[i] + (freq + coupling) * dt;
+    }
+
+    for (let i = 0; i < N; i++) {
+      nodes[i].phase = ((newPhases[i] % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    }
+    history.push(nodes.map(n => n.phase));
+    if (history.length > HISTORY_LEN) history.shift();
+    t += dt;
+  }
+
+  function orderParam(indices) {
+    let sx = 0, sy = 0;
+    indices.forEach(i => {
+      sx += Math.cos(nodes[i].phase);
+      sy += Math.sin(nodes[i].phase);
+    });
+    const n = indices.length;
+    return Math.sqrt(sx * sx + sy * sy) / n;
+  }
+
+  const allIdx = [];
+  for (let i = 0; i < N; i++) allIdx.push(i);
+  const aIdx = allIdx.filter(i => nodes[i].module === 'A');
+  const bIdx = allIdx.filter(i => nodes[i].module === 'B');
+
+  function pairLocked(i, j) {
+    const diff = Math.abs(Math.sin((nodes[i].phase - nodes[j].phase) / 2));
+    return diff < 0.18;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, width, height);
+    const cxA = width * 0.28;
+    const cxB = width * 0.72;
+    const cy = height / 2 - 10;
+    const R = orderParam(allIdx);
+    const localA = orderParam(aIdx);
+    const localB = orderParam(bIdx);
+
+    const positions = nodes.map((n) => {
+      const cx = n.module === 'A' ? cxA : cxB;
+      const radius = 80;
+      const a = (n.localIdx / n.localCount) * Math.PI * 2;
+      return { x: cx + Math.cos(a) * radius, y: cy + Math.sin(a) * radius };
+    });
+
+    ctx.lineWidth = 1;
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        if (pairLocked(i, j)) {
+          const crossModule = nodes[i].module !== nodes[j].module;
+          const alpha = crossModule ? Math.min(0.15 + R * 0.4, 0.6) : 0.5;
+          const color = crossModule ? 'rgba(140, 130, 230, ' + alpha + ')' : 'rgba(93, 202, 165, ' + alpha + ')';
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[j].x, positions[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    positions.forEach((p, i) => {
+      const pulse = 5 + 2 * Math.sin(t * 4 + p.x * 0.02);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, pulse, 0, Math.PI * 2);
+      ctx.fillStyle = nodes[i].module === 'A' ? '#5DCAA5' : '#8C82E6';
+      ctx.fill();
+    });
+
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.fillStyle = '#999';
+    ctx.textAlign = 'center';
+    ctx.fillText('Module A', cxA, height - 18);
+    ctx.fillText('Module B', cxB, height - 18);
+
+    globalROut.textContent = R.toFixed(2);
+    localAOut.textContent = localA.toFixed(2);
+    localBOut.textContent = localB.toFixed(2);
+
+    if (R > 0.6) {
+      stateLabel.textContent = 'Global synchrony — both modules locked together despite the delay between them';
+    } else if (localA > 0.85 && localB > 0.85 && R < 0.4) {
+      stateLabel.textContent = 'Fragmented — each module internally coherent, but no longer synchronized with the other';
+    } else {
+      stateLabel.textContent = 'Transition — coherence between modules is unstable';
+    }
+  }
+
+  function loop() {
+    step();
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  freqSlider.addEventListener('input', () => {
+    freqOut.textContent = parseFloat(freqSlider.value).toFixed(1);
+    initSim();
+  });
+})();
+</script>
+</body>
+</html>
