@@ -20,9 +20,9 @@
  * ---------------------------------------------------------------------------*/
 
 (function () {
-  const PhaseBrain = (window.PhaseBrain = window.PhaseBrain || {});
+  const PhaseBrain = /** @type {any} */ (window.PhaseBrain = window.PhaseBrain || {});
 
-  /* Each layer object. Every field is something you can tune live in the UI:
+  /** Each layer object. Every field is something you can tune live in the UI:
    *
    *   id       Stable identifier (used as a key and in exported JSON). Unique.
    *   name     Human label shown on the canvas and in the sidebar.
@@ -35,6 +35,8 @@
    *            own, before coupling. This is the main "axis" you'll feel.
    *   coupling Intrinsic pull each dot feels toward its own layer-mates. 1.0 is
    *            the baseline; higher = locks harder, lower = fragments easier.
+   *
+   * @type {SimConfig}
    */
   PhaseBrain.defaultConfig = {
     layers: [
@@ -75,6 +77,11 @@
     '#E85D75', '#4FA8E0', '#E0C84F', '#7DD06A',
   ];
 
+  /**
+   * Build a fresh layer with a free id and a palette colour.
+   * @param {Layer[]} existing
+   * @returns {Layer}
+   */
   PhaseBrain.makeNewLayer = function (existing) {
     const n = existing.length;
     const color = PhaseBrain.NEW_LAYER_PALETTE[n % PhaseBrain.NEW_LAYER_PALETTE.length];
@@ -85,7 +92,11 @@
     return { id: 'layer' + i, name: 'New layer ' + i, color, enabled: true, count: 6, freq: 3.0, coupling: 1.0 };
   };
 
-  /* A deep-ish clone so the live config never shares references with defaults. */
+  /**
+   * A deep-ish clone so the live config never shares references with defaults.
+   * @param {SimConfig} cfg
+   * @returns {SimConfig}
+   */
   PhaseBrain.cloneConfig = function (cfg) {
     return {
       layers: cfg.layers.map((l) => Object.assign({}, l)),

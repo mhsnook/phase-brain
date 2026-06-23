@@ -61,3 +61,25 @@ a saved one back in.
 
 `bick_switching_network_fixed.html` is kept as the original single-file
 prototype this toolbox grew out of.
+
+## Development
+
+The app itself needs **no build** — but there's optional tooling for working on
+it. Types are done with **JSDoc + `tsc --checkJs`** (no transpile step, no `.ts`
+files), so the source you edit is exactly the source the browser runs.
+
+```bash
+npm install
+npm run lint        # oxlint
+npm run typecheck   # tsc --checkJs over the simulation modules
+npm test            # vitest (jsdom)
+npm run check       # all three (what CI runs)
+```
+
+- **Types** live in `types/globals.d.ts` and are referenced from JSDoc comments.
+  The pure logic modules (`engine`, `config`, `store`, `render`) are
+  type-checked; the DOM/Preact glue (`ui`, `app`) is linted but not strict-typed.
+- **Tests** import the global-IIFE source for its side effects under jsdom and
+  assert on `window.PhaseBrain` — see `tests/engine.test.js`.
+- **CI** (`.github/workflows/ci.yml`) runs lint + typecheck + tests on pushes to
+  `main` and on PRs.
