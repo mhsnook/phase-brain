@@ -32,10 +32,12 @@
  * ---------------------------------------------------------------------------*/
 
 (function () {
-  const PhaseBrain = (window.PhaseBrain = window.PhaseBrain || {});
+  const PhaseBrain = /** @type {any} */ (window.PhaseBrain = window.PhaseBrain || {});
 
-  /* A small deterministic RNG so a given setup looks the same each reload.
-   * (Linear congruential generator — cheap and repeatable.) */
+  /** A small deterministic RNG so a given setup looks the same each reload.
+   * (Linear congruential generator — cheap and repeatable.)
+   * @param {number} seed
+   * @returns {() => number} */
   function seededRandom(seed) {
     let s = seed;
     return function () {
@@ -44,24 +46,32 @@
     };
   }
 
+  /** Keep phases in [0, 2PI).
+   * @param {number} p @returns {number} */
   function wrap(p) {
-    /* Keep phases in [0, 2PI). */
     return ((p % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
   }
 
   class Engine {
+    /** @param {number} [seed] */
     constructor(seed = 9) {
       this.rand = seededRandom(seed);
-      this.phase = [];        // flat array of every dot's phase
-      this.layerIdxs = [];    // layerIdxs[k] = array of dot-indices for active layer k
+      /** @type {number[]} flat array of every dot's phase */
+      this.phase = [];
+      /** @type {number[][]} layerIdxs[k] = dot-indices for active layer k */
+      this.layerIdxs = [];
       this.t = 0;
-      this.structureKey = ''; // changes when layers are added/removed/resized/reordered
+      /** @type {string} changes when layers are added/removed/resized/reordered */
+      this.structureKey = '';
       /* Live diagnostics, refreshed every step for the UI to read: */
-      this.Rs = [];           // order parameter per active layer
-      this.deltaAlpha = [];   // inter-layer pressure per active layer
+      /** @type {number[]} order parameter per active layer */
+      this.Rs = [];
+      /** @type {number[]} inter-layer pressure per active layer */
+      this.deltaAlpha = [];
     }
 
-    /* Gaussian noise via Box-Muller, using the seeded RNG. */
+    /** Gaussian noise via Box-Muller, using the seeded RNG.
+     * @returns {number} */
     randn() {
       let u = 0, v = 0;
       while (u === 0) u = this.rand();
@@ -69,22 +79,25 @@
       return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
     }
 
-    /* Kuramoto order parameter for a set of dot-indices: magnitude of the mean
-     * phase vector. 1 = all aligned, 0 = uniformly scattered. */
+    /** Kuramoto order parameter for a set of dot-indices: magnitude of the mean
+     * phase vector. 1 = all aligned, 0 = uniformly scattered.
+     * @param {number[]} idxs @returns {number} */
     order(idxs) {
       let sx = 0, sy = 0;
       for (const i of idxs) { sx += Math.cos(this.phase[i]); sy += Math.sin(this.phase[i]); }
       return idxs.length ? Math.sqrt(sx * sx + sy * sy) / idxs.length : 0;
     }
 
-    /* Build the per-layer index arrays and (re)seed phases. Called whenever the
+    /** Build the per-layer index arrays and (re)seed phases. Called whenever the
      * STRUCTURE changes — i.e. which layers exist, their order, or their sizes.
-     * Live tuning of freq / coupling / globals does NOT require a rebuild. */
+     * Live tuning of freq / coupling / globals does NOT require a rebuild.
+     * @param {Layer[]} activeLayers */
     rebuild(activeLayers) {
       this.layerIdxs = [];
       this.phase = [];
       let cursor = 0;
       for (const layer of activeLayers) {
+        /** @type {number[]} */
         const idxs = [];
         for (let i = 0; i < layer.count; i++) {
           idxs.push(cursor);
@@ -97,12 +110,14 @@
       this.structureKey = Engine.structureKeyOf(activeLayers);
     }
 
-    /* The signature that decides whether we need a rebuild. */
+    /** The signature that decides whether we need a rebuild.
+     * @param {Layer[]} activeLayers @returns {string} */
     static structureKeyOf(activeLayers) {
       return activeLayers.map((l) => l.id + ':' + l.count).join('|');
     }
 
-    /* Rebuild only if the structure actually changed. Returns true if rebuilt. */
+    /** Rebuild only if the structure actually changed. Returns true if rebuilt.
+     * @param {Layer[]} activeLayers @returns {boolean} */
     ensureStructure(activeLayers) {
       const key = Engine.structureKeyOf(activeLayers);
       if (key !== this.structureKey) {
@@ -112,8 +127,9 @@
       return false;
     }
 
-    /* Advance the whole system one timestep. `activeLayers` are the enabled
-     * layers in ring order; `globals` is the globals object from the config. */
+    /** Advance the whole system one timestep. `activeLayers` are the enabled
+     * layers in ring order; `globals` is the globals object from the config.
+     * @param {Layer[]} activeLayers @param {GlobalsConfig} globals */
     step(activeLayers, globals) {
       const n = activeLayers.length;
       if (n === 0) return;
@@ -123,7 +139,8 @@
       this.Rs = Rs;
 
       const newPhase = this.phase.slice();
-      const deltaAlphas = new Array(n);
+      /** @type {number[]} */
+      const deltaAlphas = Array.from({ length: n });
 
       for (let li = 0; li < n; li++) {
         const layer = activeLayers[li];

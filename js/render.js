@@ -14,14 +14,21 @@
  * ---------------------------------------------------------------------------*/
 
 (function () {
-  const PhaseBrain = (window.PhaseBrain = window.PhaseBrain || {});
+  const PhaseBrain = /** @type {any} */ (window.PhaseBrain = window.PhaseBrain || {});
 
-  /* Append an alpha byte (0..1) to a "#rrggbb" colour. */
+  /** Append an alpha byte (0..1) to a "#rrggbb" colour.
+   * @param {string} hex @param {number} a @returns {string} */
   function withAlpha(hex, a) {
     const byte = Math.max(0, Math.min(255, Math.round(a * 255)));
     return hex + byte.toString(16).padStart(2, '0');
   }
 
+  /**
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {EngineLike} engine
+   * @param {Layer[]} activeLayers
+   * @param {{ width: number, height: number, t: number }} view
+   */
   function render(ctx, engine, activeLayers, view) {
     const { width, height, t } = view;
     ctx.clearRect(0, 0, width, height);

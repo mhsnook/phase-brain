@@ -11,22 +11,27 @@
  * ---------------------------------------------------------------------------*/
 
 (function () {
-  const PhaseBrain = (window.PhaseBrain = window.PhaseBrain || {});
+  const PhaseBrain = /** @type {any} */ (window.PhaseBrain = window.PhaseBrain || {});
 
+  /** @param {SimConfig} initialConfig */
   function createStore(initialConfig) {
+    /** @type {SimConfig} */
     let config = initialConfig;
+    /** @type {Set<(c: SimConfig) => void>} */
     const listeners = new Set();
 
     return {
       get config() {
         return config;
       },
-      /* Replace config with the result of updater(config), then notify. The
-       * updater should return a NEW object (so Preact sees a fresh reference). */
+      /** Replace config with the result of updater(config), then notify. The
+       * updater should return a NEW object (so Preact sees a fresh reference).
+       * @param {SimConfig | ((c: SimConfig) => SimConfig)} updater */
       set(updater) {
         config = typeof updater === 'function' ? updater(config) : updater;
         listeners.forEach((fn) => fn(config));
       },
+      /** @param {(c: SimConfig) => void} fn */
       subscribe(fn) {
         listeners.add(fn);
         return () => listeners.delete(fn);
