@@ -145,10 +145,48 @@
     `;
   }
 
+  /** Compact, locale-aware timestamp for the versions list. */
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  function VersionList({ versions, onLoad, onRename, onRemove }) {
+    if (!versions.length) return html`<p class="hint">No saved versions yet — click Snapshot.</p>`;
+    return html`
+      <div class="versions">
+        ${versions.map((s) => html`
+          <div class="version" key=${s.id}>
+            <button class="version-load" title="load this version" onClick=${() => onLoad(s)}>
+              <span class="version-name">${s.name}</span>
+              <span class="version-time">${fmtTime(s.savedAt)}</span>
+            </button>
+            <button class="version-act" title="rename" onClick=${() => onRename(s)}>✎</button>
+            <button class="version-act remove" title="remove" onClick=${() => onRemove(s)}>✕</button>
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
   function JsonPanel({ config }) {
     const [text, setText] = useState('');
     const [open, setOpen] = useState(false);
     const [msg, setMsg] = useState('');
+    const [showVersions, setShowVersions] = useState(false);
+    const [versions, setVersions] = useState([]);
+    const snaps = PhaseBrain.snapshots;
+
+    function refreshVersions() {
+      setVersions(snaps.list());
+    }
+    /* Populate the versions (and the count badge) whenever the panel opens. */
+    useEffect(() => {
+      if (open) refreshVersions();
+    }, [open]);
 
     function dump() {
       setText(JSON.stringify(config, null, 2));
@@ -165,16 +203,55 @@
       }
     }
 
+    function snapshot() {
+      const def = 'Snapshot ' + (snaps.list().length + 1);
+      const name = window.prompt('Name this snapshot:', def);
+      if (name === null) return; // cancelled
+      const finalName = name.trim() || def;
+      snaps.save(finalName, config);
+      refreshVersions(); // keep the Versions count badge current
+      setMsg('saved “' + finalName + '” ✓');
+    }
+    function toggleVersions() {
+      const next = !showVersions;
+      setShowVersions(next);
+      if (next) refreshVersions();
+    }
+    function loadVersion(s) {
+      store.load(s.config);
+      setMsg('loaded “' + s.name + '” ✓');
+    }
+    function renameVersion(s) {
+      const name = window.prompt('Rename snapshot:', s.name);
+      if (name === null) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      snaps.rename(s.id, trimmed);
+      refreshVersions();
+    }
+    function removeVersion(s) {
+      if (!window.confirm('Remove snapshot “' + s.name + '”?')) return;
+      snaps.remove(s.id);
+      refreshVersions();
+    }
+
     return html`
       <div class="section">
         <h2 class="clickable" onClick=${() => setOpen(!open)}>Save / load ${open ? '–' : '+'}</h2>
         ${open && html`
           <div>
             <div class="json-buttons">
+              <button onClick=${snapshot}>📸 Snapshot</button>
+              <button onClick=${toggleVersions}>🕘 Versions${versions.length ? ' (' + versions.length + ')' : ''}</button>
+            </div>
+            ${showVersions && html`
+              <${VersionList} versions=${versions} onLoad=${loadVersion}
+                              onRename=${renameVersion} onRemove=${removeVersion} />`}
+            <div class="json-buttons json-io">
               <button onClick=${dump}>Export →</button>
               <button onClick=${apply}>Apply ←</button>
-              ${msg && html`<span class="json-msg">${msg}</span>`}
             </div>
+            ${msg && html`<p class="json-msg">${msg}</p>`}
             <textarea class="json-area" spellcheck="false" value=${text}
                       onInput=${(e) => setText(e.target.value)}
                       placeholder="Click Export to dump the current settings as JSON, or paste a saved config and click Apply."></textarea>

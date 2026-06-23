@@ -92,27 +92,38 @@
   /* JSON panel */
   .json-buttons { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .json-buttons button { font-size: 12px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
-  .json-msg { font-size: 11px; color: var(--muted); }
-  .json-area { width: 100%; height: 180px; background: #1c1c1c; color: #cfcfcf; border: 1px solid var(--line); border-radius: 7px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 8px; resize: vertical; }
+  .json-msg { font-size: 11px; color: var(--muted); margin: 8px 0 0; }
+  .json-io { margin-top: 12px; }
+  .json-area { width: 100%; height: 180px; background: #1c1c1c; color: #cfcfcf; border: 1px solid var(--line); border-radius: 7px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 8px; resize: vertical; margin-top: 8px; }
 
-  /* coherence heads-up display (visible only when the sidebar is collapsed) */
+  /* saved versions list */
+  .versions { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 2px; }
+  .version { display: flex; align-items: stretch; gap: 5px; }
+  .version-load { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; cursor: pointer; text-align: left; }
+  .version-load:hover { border-color: #5a5a5a; }
+  .version-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .version-time { font-size: 10px; color: var(--muted); }
+  .version-act { width: 30px; flex: none; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); border-radius: 7px; cursor: pointer; font-size: 12px; }
+  .version-act:hover { color: var(--text); border-color: #5a5a5a; }
+  .version-act.remove:hover { color: #E85D75; border-color: #E85D75; }
+
+  /* coherence heads-up display — always visible in the stage's bottom-left,
+     so you can see every layer's coherence even with the sidebar open */
   #coherence-hud {
-    position: absolute; top: 56px; right: 16px; z-index: 2; width: 220px;
-    background: rgba(36, 36, 36, 0.82); border: 1px solid var(--line); border-radius: 9px;
-    padding: 10px 12px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-    opacity: 0; transform: translateY(-4px); pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    position: absolute; bottom: 16px; left: 16px; z-index: 2; width: 288px; max-width: calc(100% - 32px);
+    background: rgba(30, 30, 30, 0.86); border: 1px solid var(--line); border-radius: 11px;
+    padding: 13px 15px; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+    pointer-events: none; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   }
-  #shell.collapsed #coherence-hud { opacity: 1; transform: none; }
-  .hud-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px; }
-  .hud-row { display: grid; grid-template-columns: 9px minmax(0, 1fr) 60px 30px; align-items: center; gap: 7px; margin-bottom: 6px; }
+  .hud-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 10px; }
+  .hud-row { display: grid; grid-template-columns: 11px minmax(0, 1fr) 84px 36px; align-items: center; gap: 9px; margin-bottom: 8px; }
   .hud-row:last-child { margin-bottom: 0; }
-  .hud-dot { width: 9px; height: 9px; border-radius: 50%; }
-  .hud-name { font-size: 11px; color: #cfcfcf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hud-bar { position: relative; height: 6px; background: #1c1c1c; border-radius: 3px; overflow: hidden; }
-  .hud-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; border-radius: 3px; transition: width 0.08s linear; }
-  .hud-val { font-size: 10px; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
-  .hud-empty { font-size: 11px; color: var(--muted); }
+  .hud-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .hud-name { font-size: 12.5px; color: #dcdcdc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hud-bar { position: relative; height: 9px; background: #161616; border-radius: 5px; overflow: hidden; }
+  .hud-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; border-radius: 5px; transition: width 0.08s linear; }
+  .hud-val { font-size: 12px; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+  .hud-empty { font-size: 12px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -147,6 +158,7 @@
 <script src="js/config.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/store.js"></script>
+<script src="js/snapshots.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/app.js"></script>

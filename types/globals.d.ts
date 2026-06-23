@@ -28,6 +28,14 @@ interface SimConfig {
   globals: GlobalsConfig;
 }
 
+/** A named, timestamped saved configuration (see js/snapshots.js). */
+interface Snapshot {
+  id: string;
+  name: string;
+  savedAt: string;
+  config: SimConfig;
+}
+
 /** The subset of the engine that the renderer reads from. */
 interface EngineLike {
   phase: number[];

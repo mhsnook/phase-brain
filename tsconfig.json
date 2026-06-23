@@ -12,6 +12,6 @@
     "types": []
   },
   "//": "We type-check the pure logic modules (the simulation). The DOM/Preact glue (ui.js, app.js) is linted by oxlint but not strict-typed, to avoid drowning in DOM null-checks for little benefit.",
-  "include": ["js/engine.js", "js/config.js", "js/store.js", "js/render.js", "types/**/*.d.ts"],
+  "include": ["js/engine.js", "js/config.js", "js/store.js", "js/render.js", "js/snapshots.js", "types/**/*.d.ts"],
   "exclude": ["node_modules", "js/vendor"]
 }

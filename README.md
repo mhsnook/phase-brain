@@ -43,8 +43,13 @@ Globally:
 
 - **base phase-lag α**, **switching gain (kBias)**, **noise**, **speed (dt)**
 
-Use **Save / load** in the sidebar to export the current setup as JSON, or paste
-a saved one back in.
+Use **Save / load** in the sidebar to export the current setup as JSON (or paste
+one back in), or to keep named **snapshots** in the browser: click *Snapshot* to
+store the current settings under a name, and *Versions* to reload, rename, or
+remove your saved ones later. Snapshots persist in `localStorage`.
+
+A compact **coherence readout** sits in the bottom-right corner, always showing
+every layer's order parameter R at a glance — even with the sidebar open.
 
 ## Layout
 
