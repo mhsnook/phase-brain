@@ -24,4 +24,36 @@ describe('config', () => {
     expect(fresh.enabled).toBe(true);
     expect(fresh.count).toBeGreaterThan(0);
   });
+
+  it('jumbleConfig keeps layer identity/count/order and stays in range', () => {
+    const base = PB.cloneConfig(PB.defaultConfig);
+    // a deterministic, varied rng in [0,1)
+    let k = 0.123;
+    const rng = () => ((k = (k + 0.387) % 1), k);
+    const out = PB.jumbleConfig(base, rng);
+
+    // structure preserved: same ids, in the same order
+    expect(out.layers.map((l) => l.id)).toEqual(base.layers.map((l) => l.id));
+
+    out.layers.forEach((l, i) => {
+      expect(l.name).toBe(base.layers[i].name);
+      expect(l.color).toBe(base.layers[i].color);
+      expect(l.enabled).toBe(base.layers[i].enabled);
+      expect(l.freq).toBeGreaterThanOrEqual(0.5);
+      expect(l.freq).toBeLessThanOrEqual(6);
+      expect(l.coupling).toBeGreaterThanOrEqual(0.3);
+      expect(l.coupling).toBeLessThanOrEqual(2.5);
+      expect(Number.isInteger(l.count)).toBe(true);
+      expect(l.count).toBeGreaterThanOrEqual(3);
+      expect(l.count).toBeLessThanOrEqual(12);
+    });
+
+    expect(out.globals.alphaBase).toBeGreaterThanOrEqual(0.8);
+    expect(out.globals.alphaBase).toBeLessThanOrEqual(1.55);
+    expect(out.globals.dt).toBeGreaterThanOrEqual(0.01);
+    expect(out.globals.dt).toBeLessThanOrEqual(0.03);
+
+    // does not mutate the input
+    expect(base.layers[0].freq).toBe(PB.defaultConfig.layers[0].freq);
+  });
 });

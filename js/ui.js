@@ -51,8 +51,11 @@
       return { ...cfg, layers };
     });
   }
-  function replaceConfig(cfg) {
-    store.set(() => cfg);
+  function jumble() {
+    store.set((cfg) => PhaseBrain.jumbleConfig(cfg));
+  }
+  function reset() {
+    store.reset();
   }
 
   /* ---- small reusable controls -------------------------------------------- */
@@ -155,7 +158,7 @@
       try {
         const parsed = JSON.parse(text);
         if (!parsed.layers || !parsed.globals) throw new Error('need {layers, globals}');
-        replaceConfig(parsed);
+        store.load(parsed); // becomes the new "Reset" baseline
         setMsg('applied ✓');
       } catch (e) {
         setMsg('invalid: ' + e.message);
@@ -191,6 +194,10 @@
 
     return html`
       <div class="sidebar-inner">
+        <div class="actions">
+          <button onClick=${jumble} title="Randomise all settings within sensible ranges (keeps the layers and their order)">🎲 Jumble</button>
+          <button onClick=${reset} title="Restore the last loaded settings (or the defaults)">↺ Reset</button>
+        </div>
         <div class="section">
           <h2>Layers <button class="add-layer" onClick=${addLayer}>+ add</button></h2>
           <p class="hint">Order = the ring. Inner layers are first; each layer's
