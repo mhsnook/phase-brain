@@ -203,6 +203,14 @@
     useEffect(() => {
       if (open) refreshVersions();
     }, [open]);
+    /* Auto-dismiss the transient "saved …" confirmation after a moment. Re-runs
+     * on each new saveMsg, so saving again restarts the timer rather than letting
+     * a stale timeout clear the fresh message. */
+    useEffect(() => {
+      if (!saveMsg) return undefined;
+      const id = setTimeout(() => setSaveMsg(''), 2500);
+      return () => clearTimeout(id);
+    }, [saveMsg]);
 
     /* Serialise the live config and baseline once; every comparison below reuses
      * these. Relies on canonical key order, which cloneConfig and the JSON
@@ -254,6 +262,7 @@
       if (name === null) return; // cancelled
       const finalName = name.trim() || def;
       snaps.save(finalName, config);
+      store.load(config); // anchor the baseline here so the new snapshot highlights
       refreshVersions(); // keep the Versions count badge current
       setSaveMsg('saved “' + finalName + '” ✓');
     }
