@@ -80,7 +80,9 @@
     ctx.shadowBlur = 0;
     ctx.lineWidth = 1;
 
-    /* Links between near-locked dots within each layer. */
+    /* Links between near-locked dots within each layer. We also tally how many
+     * active links each node has, so well-connected nodes can glow below. */
+    const connections = Array.from({ length: engine.phase.length }, () => 0);
     for (let li = 0; li < n; li++) {
       const idxs = engine.layerIdxs[li];
       const color = activeLayers[li].color;
@@ -89,6 +91,8 @@
           const i = idxs[a], j = idxs[b];
           const diff = Math.abs(Math.sin((engine.phase[i] - engine.phase[j]) / 2));
           if (diff < 0.25) {
+            connections[i]++;
+            connections[j]++;
             ctx.strokeStyle = withAlpha(color, 0.16 + Rs[li] * 0.35);
             ctx.beginPath();
             ctx.moveTo(positions[i].x, positions[i].y);
@@ -99,19 +103,26 @@
       }
     }
 
-    /* Dots. */
+    /* Dots — a node grows and glows the more of its layer-mates it is locked to,
+     * so densely-connected hubs stand out. `frac` is its share of the maximum
+     * possible links within its layer. */
     for (let li = 0; li < n; li++) {
       const idxs = engine.layerIdxs[li];
       const color = activeLayers[li].color;
+      const maxConn = Math.max(1, idxs.length - 1);
       for (const i of idxs) {
         const p = positions[i];
-        const pulse = 5 + 2 * Math.sin(t * 4 + p.x * 0.02);
+        const frac = connections[i] / maxConn;
+        const pulse = 5 + 2 * Math.sin(t * 4 + p.x * 0.02) + frac * 1.5;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = frac * frac * 16; // frac^2 so only well-connected nodes glow
         ctx.beginPath();
         ctx.arc(p.x, p.y, pulse, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
       }
     }
+    ctx.shadowBlur = 0;
 
     /* Layer labels along the top. */
     ctx.font = '11px -apple-system, sans-serif';
