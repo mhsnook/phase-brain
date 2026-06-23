@@ -37,6 +37,14 @@ describe('store baseline / reset', () => {
     expect(store.config.layers[0].freq).toBe(1.23);
   });
 
+  it('exposes baseline; config equals it until edited, diverges after', () => {
+    expect(JSON.stringify(store.config)).toBe(JSON.stringify(store.baseline));
+    store.set((c) => ({ ...c, globals: { ...c.globals, kBias: 0.123 } }));
+    expect(JSON.stringify(store.config)).not.toBe(JSON.stringify(store.baseline));
+    store.reset();
+    expect(JSON.stringify(store.config)).toBe(JSON.stringify(store.baseline));
+  });
+
   it('load does not keep a live reference to the passed object', () => {
     const custom = PB.cloneConfig(PB.defaultConfig);
     store.load(custom);

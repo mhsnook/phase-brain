@@ -48,6 +48,20 @@ describe('snapshots (localStorage)', () => {
     expect(snaps.list()[0].config.layers[0].freq).not.toBe(99);
   });
 
+  it('seedIfEmpty writes a "default" snapshot only when storage is empty', () => {
+    const seeded = snaps.seedIfEmpty(PB.defaultConfig);
+    expect(seeded).toBe(true);
+    const list = snaps.list();
+    expect(list).toHaveLength(1);
+    expect(list[0].name).toBe('default');
+    expect(list[0].config.layers).toHaveLength(PB.defaultConfig.layers.length);
+
+    // second call is a no-op
+    const again = snaps.seedIfEmpty(PB.defaultConfig);
+    expect(again).toBe(false);
+    expect(snaps.list()).toHaveLength(1);
+  });
+
   it('survives corrupt storage by treating it as empty', () => {
     window.localStorage.setItem('phase-brain:snapshots', '{not json');
     expect(snaps.list()).toEqual([]);

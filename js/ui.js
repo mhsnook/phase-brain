@@ -154,12 +154,12 @@
     });
   }
 
-  function VersionList({ versions, onLoad, onRename, onRemove }) {
+  function VersionList({ versions, activeId, onLoad, onRename, onRemove }) {
     if (!versions.length) return html`<p class="hint">No saved versions yet — click Snapshot.</p>`;
     return html`
       <div class="versions">
         ${versions.map((s) => html`
-          <div class="version" key=${s.id}>
+          <div class=${'version' + (s.id === activeId ? ' active' : '')} key=${s.id}>
             <button class="version-load" title="load this version" onClick=${() => onLoad(s)}>
               <span class="version-name">${s.name}</span>
               <span class="version-time">${fmtTime(s.savedAt)}</span>
@@ -175,9 +175,12 @@
   function JsonPanel({ config }) {
     const [text, setText] = useState('');
     const [open, setOpen] = useState(false);
-    const [msg, setMsg] = useState('');
     const [showVersions, setShowVersions] = useState(false);
     const [versions, setVersions] = useState([]);
+    /* Whether the textarea JSON was just applied and hasn't drifted since. */
+    const [applied, setApplied] = useState(false);
+    const [ioErr, setIoErr] = useState('');
+    const [saveMsg, setSaveMsg] = useState('');
     const snaps = PhaseBrain.snapshots;
 
     function refreshVersions() {
@@ -188,18 +191,47 @@
       if (open) refreshVersions();
     }, [open]);
 
+    /* Serialise the live config and baseline once; every comparison below reuses
+     * these. Relies on canonical key order, which cloneConfig and the JSON
+     * round-trip through localStorage both preserve. */
+    const configJson = JSON.stringify(config);
+    const baselineJson = JSON.stringify(store.baseline);
+
+    /* "Dirty" relative to the last loaded config (defaults, applied JSON, or a
+     * loaded snapshot): store.load() sets config === baseline, any edit diverges
+     * them. Drives the snapshot-row highlight. */
+    const cfgDirty = configJson !== baselineJson;
+    /* Whether applying the textarea would actually change the live config.
+     * Drives the Apply button's enabled state. */
+    function textMatchesConfig() {
+      try {
+        return JSON.stringify(JSON.parse(text)) === configJson;
+      } catch {
+        return false;
+      }
+    }
+    const ioClean = text.trim() !== '' && textMatchesConfig();
+    const canApply = text.trim() !== '' && !ioClean;
+    const showApplied = applied && ioClean;
+    /* Highlight whichever saved snapshot the live (non-dirty) config matches —
+     * covers loading a snapshot, resetting to it, and the seeded "default". */
+    const matched = cfgDirty ? null : versions.find((s) => JSON.stringify(s.config) === baselineJson);
+    const highlightId = matched ? matched.id : null;
+
     function dump() {
       setText(JSON.stringify(config, null, 2));
-      setMsg('');
+      setApplied(false);
+      setIoErr('');
     }
     function apply() {
       try {
         const parsed = JSON.parse(text);
         if (!parsed.layers || !parsed.globals) throw new Error('need {layers, globals}');
         store.load(parsed); // becomes the new "Reset" baseline
-        setMsg('applied ✓');
+        setApplied(true);
+        setIoErr('');
       } catch (e) {
-        setMsg('invalid: ' + e.message);
+        setIoErr('invalid: ' + e.message);
       }
     }
 
@@ -210,7 +242,7 @@
       const finalName = name.trim() || def;
       snaps.save(finalName, config);
       refreshVersions(); // keep the Versions count badge current
-      setMsg('saved “' + finalName + '” ✓');
+      setSaveMsg('saved “' + finalName + '” ✓');
     }
     function toggleVersions() {
       const next = !showVersions;
@@ -219,7 +251,9 @@
     }
     function loadVersion(s) {
       store.load(s.config);
-      setMsg('loaded “' + s.name + '” ✓');
+      setApplied(false);
+      setIoErr('');
+      setSaveMsg('');
     }
     function renameVersion(s) {
       const name = window.prompt('Rename snapshot:', s.name);
@@ -243,17 +277,18 @@
             <div class="json-buttons">
               <button onClick=${snapshot}>📸 Snapshot</button>
               <button onClick=${toggleVersions}>🕘 Versions${versions.length ? ' (' + versions.length + ')' : ''}</button>
+              ${saveMsg && html`<span class="io-msg ok">${saveMsg}</span>`}
             </div>
             ${showVersions && html`
-              <${VersionList} versions=${versions} onLoad=${loadVersion}
+              <${VersionList} versions=${versions} activeId=${highlightId} onLoad=${loadVersion}
                               onRename=${renameVersion} onRemove=${removeVersion} />`}
             <div class="json-buttons json-io">
               <button onClick=${dump}>Export →</button>
-              <button onClick=${apply}>Apply ←</button>
+              <button onClick=${apply} disabled=${!canApply}>Apply ←</button>
+              <span class=${'io-msg ' + (ioErr ? 'err' : 'ok')}>${ioErr || (showApplied ? 'applied ✓' : '')}</span>
             </div>
-            ${msg && html`<p class="json-msg">${msg}</p>`}
             <textarea class="json-area" spellcheck="false" value=${text}
-                      onInput=${(e) => setText(e.target.value)}
+                      onInput=${(e) => { setText(e.target.value); setIoErr(''); }}
                       placeholder="Click Export to dump the current settings as JSON, or paste a saved config and click Apply."></textarea>
           </div>
         `}

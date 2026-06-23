@@ -35,26 +35,28 @@
     return 'snap_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e6).toString(36);
   }
 
+  /** Save the given config under a name. @param {string} name @param {SimConfig} config @returns {Snapshot} */
+  function saveSnap(name, config) {
+    const all = readAll();
+    /** @type {Snapshot} */
+    const snap = {
+      id: uid(),
+      name: name,
+      savedAt: new Date().toISOString(),
+      config: PhaseBrain.cloneConfig(config),
+    };
+    all.push(snap);
+    writeAll(all);
+    return snap;
+  }
+
   PhaseBrain.snapshots = {
     /** All saved snapshots, newest first. @returns {Snapshot[]} */
     list() {
       return readAll().slice().reverse();
     },
 
-    /** Save the given config under a name. @param {string} name @param {SimConfig} config @returns {Snapshot} */
-    save(name, config) {
-      const all = readAll();
-      /** @type {Snapshot} */
-      const snap = {
-        id: uid(),
-        name: name,
-        savedAt: new Date().toISOString(),
-        config: PhaseBrain.cloneConfig(config),
-      };
-      all.push(snap);
-      writeAll(all);
-      return snap;
-    },
+    save: saveSnap,
 
     /** @param {string} id @param {string} name */
     rename(id, name) {
@@ -69,6 +71,15 @@
     /** @param {string} id */
     remove(id) {
       writeAll(readAll().filter((x) => x.id !== id));
+    },
+
+    /** When no snapshots exist yet, seed one named "default" from the given
+     * config so there's always a way back to it.
+     * @param {SimConfig} config @returns {boolean} whether a seed was written */
+    seedIfEmpty(config) {
+      if (readAll().length > 0) return false;
+      saveSnap('default', config);
+      return true;
     },
   };
 })();

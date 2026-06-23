@@ -17,6 +17,9 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    /* Ensure there's always a "default" snapshot to return to. */
+    PhaseBrain.snapshots.seedIfEmpty(PhaseBrain.defaultConfig);
+
     /* Mount the Preact sidebar. */
     PhaseBrain.mountSidebar(document.getElementById('sidebar-body'));
 
