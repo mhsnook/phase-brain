@@ -55,7 +55,20 @@
     store.set((cfg) => PhaseBrain.jumbleConfig(cfg));
   }
   function reset() {
-    store.reset();
+    const baselineJson = JSON.stringify(store.baseline);
+    /* If the live config was edited, Reset just discards those edits and returns
+     * to the baseline. */
+    if (JSON.stringify(store.config) !== baselineJson) {
+      store.reset();
+      return;
+    }
+    /* Already sitting on the baseline. If it still corresponds to a saved
+     * snapshot, there's nowhere to go. But if that snapshot was deleted, fall
+     * through to the most recent remaining snapshot instead of silently
+     * no-opping. */
+    const list = PhaseBrain.snapshots.list(); // newest first
+    const stillSaved = list.some((s) => JSON.stringify(s.config) === baselineJson);
+    if (!stillSaved && list[0]) store.load(list[0].config);
   }
 
   /* ---- small reusable controls -------------------------------------------- */
@@ -275,7 +288,8 @@
         ${open && html`
           <div>
             <div class="json-buttons">
-              <button onClick=${snapshot}>📸 Snapshot</button>
+              <button onClick=${snapshot} disabled=${!cfgDirty}
+                      title=${cfgDirty ? 'Save the current settings as a named version' : 'Change a setting first — this matches a saved version'}>📸 Snapshot</button>
               <button onClick=${toggleVersions}>🕘 Versions${versions.length ? ' (' + versions.length + ')' : ''}</button>
               ${saveMsg && html`<span class="io-msg ok">${saveMsg}</span>`}
             </div>
