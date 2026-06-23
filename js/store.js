@@ -17,8 +17,16 @@
   function createStore(initialConfig) {
     /** @type {SimConfig} */
     let config = initialConfig;
+    /** The last *loaded* config — the defaults at startup, or whatever was last
+     * applied via the Save/load panel. "Reset" returns here.
+     * @type {SimConfig} */
+    let baseline = PhaseBrain.cloneConfig(initialConfig);
     /** @type {Set<(c: SimConfig) => void>} */
     const listeners = new Set();
+
+    function notify() {
+      listeners.forEach((fn) => fn(config));
+    }
 
     return {
       get config() {
@@ -29,7 +37,19 @@
        * @param {SimConfig | ((c: SimConfig) => SimConfig)} updater */
       set(updater) {
         config = typeof updater === 'function' ? updater(config) : updater;
-        listeners.forEach((fn) => fn(config));
+        notify();
+      },
+      /** Adopt cfg as both the live config AND the new reset baseline (used when
+       * loading a saved config). @param {SimConfig} cfg */
+      load(cfg) {
+        baseline = PhaseBrain.cloneConfig(cfg);
+        config = PhaseBrain.cloneConfig(cfg);
+        notify();
+      },
+      /** Restore the live config to the last loaded baseline. */
+      reset() {
+        config = PhaseBrain.cloneConfig(baseline);
+        notify();
       },
       /** @param {(c: SimConfig) => void} fn */
       subscribe(fn) {

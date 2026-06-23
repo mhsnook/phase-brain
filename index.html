@@ -53,6 +53,11 @@
 
   .add-layer { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
 
+  /* jumble / reset action row */
+  .actions { display: flex; gap: 8px; margin-bottom: 18px; }
+  .actions button { flex: 1; font-size: 12px; font-weight: 500; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 8px; cursor: pointer; transition: border-color 0.12s; }
+  .actions button:hover { border-color: #5a5a5a; }
+
   /* a layer card */
   .layer { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 10px; margin-bottom: 10px; transition: opacity 0.15s; }
   .layer.disabled { opacity: 0.45; }

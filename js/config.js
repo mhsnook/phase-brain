@@ -103,4 +103,36 @@
       globals: Object.assign({}, cfg.globals),
     };
   };
+
+  /**
+   * Produce a new config with randomised dynamics, within sensible ranges.
+   * Deliberately preserves each layer's identity (id/name/color/enabled) and the
+   * layer count and order — only the tunable numbers are shuffled: per-layer
+   * frequency, coupling and size, plus the global knobs. Ranges are narrower
+   * than the slider extremes so a jumble lands somewhere lively rather than
+   * degenerate (e.g. alphaBase stays near the interesting PI/2 regime).
+   * @param {SimConfig} cfg
+   * @param {() => number} [rng] random source in [0,1) (defaults to Math.random)
+   * @returns {SimConfig}
+   */
+  PhaseBrain.jumbleConfig = function (cfg, rng) {
+    const r = rng || Math.random;
+    const span = (/** @type {number} */ min, /** @type {number} */ max) => min + r() * (max - min);
+    const quant = (/** @type {number} */ v, /** @type {number} */ step) => Math.round(v / step) * step;
+    return {
+      layers: cfg.layers.map((l) =>
+        Object.assign({}, l, {
+          freq: quant(span(0.5, 6), 0.1),
+          coupling: quant(span(0.3, 2.5), 0.05),
+          count: Math.round(span(3, 12)),
+        })
+      ),
+      globals: {
+        alphaBase: quant(span(0.8, 1.55), 0.01),
+        kBias: quant(span(0.1, 1.2), 0.01),
+        freqNoise: quant(span(0.03, 0.3), 0.01),
+        dt: quant(span(0.01, 0.03), 0.002),
+      },
+    };
+  };
 })();
