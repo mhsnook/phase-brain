@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase Brain — order-parameter switching toolbox</title>
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --panel: #242424;
+    --panel-2: #2c2c2c;
+    --text: #e8e8e8;
+    --muted: #999;
+    --line: #383838;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* shell: canvas stage on the left, sidebar on the right */
+  #shell { display: grid; grid-template-columns: 1fr 360px; height: 100vh; transition: grid-template-columns 0.25s ease; }
+  #shell.collapsed { grid-template-columns: 1fr 0px; }
+
+  #stage { position: relative; min-width: 0; }
+  #header { position: absolute; top: 16px; left: 20px; right: 20px; z-index: 2; pointer-events: none; }
+  #header h1 { font-size: 16px; font-weight: 500; margin: 0 0 2px; }
+  #header p { font-size: 12px; color: var(--muted); margin: 0; max-width: 560px; line-height: 1.4; }
+  #canvas-wrap { position: absolute; inset: 0; }
+  canvas { width: 100%; height: 100%; display: block; }
+
+  /* sidebar */
+  #sidebar { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; overflow-x: hidden; }
+  #shell.collapsed #sidebar { border-left: none; }
+  #sidebar-toggle {
+    position: absolute; top: 16px; right: 16px; z-index: 3; pointer-events: auto;
+    width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); cursor: pointer; font-size: 15px; line-height: 1;
+  }
+  #shell.collapsed #sidebar-toggle::after { content: '☰'; }
+  #shell:not(.collapsed) #sidebar-toggle::after { content: '⟩'; }
+
+  .sidebar-inner { padding: 16px 16px 60px; }
+  .section { margin-bottom: 22px; }
+  .section h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; justify-content: space-between; }
+  .section h2.clickable { cursor: pointer; }
+  .hint { font-size: 11px; color: #777; margin: -4px 0 12px; line-height: 1.45; }
+
+  .add-layer { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+
+  /* a layer card */
+  .layer { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 10px; margin-bottom: 10px; transition: opacity 0.15s; }
+  .layer.disabled { opacity: 0.45; }
+  .layer-head { display: flex; align-items: center; gap: 7px; }
+  .swatch { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.18); cursor: pointer; flex: none; padding: 0; }
+  .layer-name { flex: 1; min-width: 0; background: transparent; border: none; color: var(--text); font-size: 13px; font-weight: 500; padding: 2px 0; }
+  .layer-name:focus { outline: none; border-bottom: 1px solid var(--line); }
+  .layer-order { display: flex; flex-direction: column; }
+  .layer-order button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 8px; line-height: 9px; padding: 0 2px; }
+  .layer-order button:disabled { opacity: 0.25; cursor: default; }
+  .row-toggle, .row-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px 4px; }
+  .row-remove:hover { color: #E85D75; }
+
+  .layer-body { margin-top: 10px; }
+
+  /* sliders */
+  .field { display: block; margin-bottom: 9px; }
+  .field-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .field-val { color: var(--text); font-variant-numeric: tabular-nums; }
+  .field input[type=range] { width: 100%; }
+  .color-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .color-row input[type=color] { width: 36px; height: 22px; border: none; background: none; padding: 0; cursor: pointer; }
+
+  /* meters */
+  .meters { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .meter { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 8px; }
+  .meter-label { font-size: 10px; color: #888; }
+  .meter-track { position: relative; height: 7px; background: #1c1c1c; border-radius: 4px; overflow: hidden; }
+  .meter-track.bipolar::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #555; }
+  .meter-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0%; border-radius: 4px; transition: width 0.08s linear; }
+
+  /* JSON panel */
+  .json-buttons { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .json-buttons button { font-size: 12px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .json-msg { font-size: 11px; color: var(--muted); }
+  .json-area { width: 100%; height: 180px; background: #1c1c1c; color: #cfcfcf; border: 1px solid var(--line); border-radius: 7px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 8px; resize: vertical; }
+</style>
+</head>
+<body>
+
+<div id="shell">
+  <div id="stage">
+    <div id="header">
+      <h1>Phase Brain</h1>
+      <p>Layers of oscillators that lock or fragment depending on their neighbours' coherence
+        (Bick 2017). Edit, toggle and reorder layers in the sidebar; watch each layer's
+        coherence and the inter-layer pressure shift in real time.</p>
+    </div>
+    <button id="sidebar-toggle" title="toggle sidebar"></button>
+    <div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+  </div>
+  <aside id="sidebar"><div id="sidebar-body"></div></aside>
+</div>
+
+<!-- No build step. Preact + htm are vendored as plain globals (UMD) so the page
+     works opened straight from the filesystem, offline, with no CDN. -->
+<script src="js/vendor/preact.umd.js"></script>
+<script src="js/vendor/hooks.umd.js"></script>
+<script src="js/vendor/htm.umd.js"></script>
+
+<!-- Our code, in dependency order. -->
+<script src="js/config.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/store.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
