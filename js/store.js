@@ -32,6 +32,11 @@
       get config() {
         return config;
       },
+      /** The last loaded config (defaults, applied JSON, or a loaded snapshot).
+       * The live config equals this until something is edited. */
+      get baseline() {
+        return baseline;
+      },
       /** Replace config with the result of updater(config), then notify. The
        * updater should return a NEW object (so Preact sees a fresh reference).
        * @param {SimConfig | ((c: SimConfig) => SimConfig)} updater */
