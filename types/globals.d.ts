@@ -20,6 +20,14 @@ interface GlobalsConfig {
   kBias: number;
   freqNoise: number;
   dt: number;
+  /** Coherence R above which a layer starts to tire (else it recovers). */
+  sundownThreshold: number;
+  /** How fast per-layer strain builds while above the threshold (per second). */
+  sundownRate: number;
+  /** How fast strain fades while a layer is fragmented (per second). */
+  sundownRecovery: number;
+  /** Gain on the sundowning push; 0 disables the effect. */
+  sundownStrength: number;
 }
 
 /** The whole editable configuration (what gets exported as JSON). */
@@ -42,6 +50,8 @@ interface EngineLike {
   layerIdxs: number[][];
   Rs: number[];
   deltaAlpha: number[];
+  strain: number[];
+  deltaSundown: number[];
   t: number;
   order(idxs: number[]): number;
 }

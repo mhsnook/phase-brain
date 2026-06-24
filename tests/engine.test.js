@@ -121,3 +121,85 @@ describe('Bick switching wiring', () => {
     for (const da of eng.deltaAlpha) expect(Math.abs(da)).toBe(0);
   });
 });
+
+describe('Sundowning fatigue', () => {
+  let cfg;
+  beforeEach(() => {
+    cfg = PB.cloneConfig(PB.defaultConfig);
+  });
+
+  it('tracks one strain value per active layer, reset to zero on rebuild', () => {
+    const active = activeOf(cfg);
+    const eng = new PB.Engine();
+    eng.ensureStructure(active);
+    expect(eng.strain).toHaveLength(active.length);
+    expect(eng.strain.every((s) => s === 0)).toBe(true);
+  });
+
+  it('keeps strain within [0, 1] and finite over a long run', () => {
+    const active = activeOf(cfg);
+    const eng = new PB.Engine();
+    eng.ensureStructure(active);
+    for (let i = 0; i < 500; i++) eng.step(active, cfg.globals);
+    for (const s of eng.strain) {
+      expect(Number.isFinite(s)).toBe(true);
+      expect(s).toBeGreaterThanOrEqual(0);
+      expect(s).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('builds strain while a layer holds coherence above the threshold', () => {
+    // A single, strongly-coupled, zero-lag layer locks hard (R near 1). With the
+    // sundown *push* disabled it can't disrupt its own lock, so we isolate the
+    // build behaviour: R stays above the threshold and strain climbs off zero.
+    cfg.layers = [{ id: 'solo', name: 'solo', color: '#fff', enabled: true, count: 6, freq: 1, coupling: 3 }];
+    cfg.globals.alphaBase = 0; // classic Kuramoto -> robust synchrony
+    cfg.globals.freqNoise = 0;
+    cfg.globals.sundownThreshold = 0.5;
+    cfg.globals.sundownStrength = 0; // measure build without the feedback that fights it
+    const active = activeOf(cfg);
+    const eng = new PB.Engine();
+    eng.ensureStructure(active);
+    for (let i = 0; i < 300; i++) eng.step(active, cfg.globals);
+    expect(eng.Rs[0]).toBeGreaterThan(cfg.globals.sundownThreshold);
+    expect(eng.strain[0]).toBeGreaterThan(0);
+  });
+
+  it('never strains, nor pushes alphaEff, when the rates and strength are zero', () => {
+    cfg.globals.sundownRate = 0;
+    cfg.globals.sundownRecovery = 0;
+    cfg.globals.sundownStrength = 0;
+    const active = activeOf(cfg);
+    const eng = new PB.Engine();
+    eng.ensureStructure(active);
+    for (let i = 0; i < 200; i++) eng.step(active, cfg.globals);
+    for (const s of eng.strain) expect(s).toBe(0);
+    for (const ds of eng.deltaSundown) expect(ds).toBe(0);
+  });
+
+  it('contributes zero push when strength is zero even if strain accrues', () => {
+    cfg.globals.sundownStrength = 0;
+    cfg.globals.sundownThreshold = 0; // everything counts as "locked" -> strain builds
+    const active = activeOf(cfg);
+    const eng = new PB.Engine();
+    eng.ensureStructure(active);
+    for (let i = 0; i < 50; i++) eng.step(active, cfg.globals);
+    // Strain accumulated, but with zero gain it must add nothing to alphaEff.
+    expect(eng.strain.some((s) => s > 0)).toBe(true);
+    for (const ds of eng.deltaSundown) expect(ds).toBe(0);
+  });
+
+  it('treats a config with no sundown* keys as the effect being off', () => {
+    delete cfg.globals.sundownThreshold;
+    delete cfg.globals.sundownRate;
+    delete cfg.globals.sundownRecovery;
+    delete cfg.globals.sundownStrength;
+    const active = activeOf(cfg);
+    const eng = new PB.Engine();
+    eng.ensureStructure(active);
+    for (let i = 0; i < 100; i++) eng.step(active, cfg.globals);
+    expect(eng.phase.every(Number.isFinite)).toBe(true);
+    for (const s of eng.strain) expect(s).toBe(0);
+    for (const ds of eng.deltaSundown) expect(ds).toBe(0);
+  });
+});

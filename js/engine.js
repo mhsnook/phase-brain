@@ -29,6 +29,23 @@
  *
  *   `deltaAlpha` is itself a useful, observable number: it's "how hard my
  *   neighbours are currently pushing me". The UI shows it as a live bar.
+ *
+ * THE SUNDOWNING MECHANISM (per-layer fatigue):
+ *   A second, slower bend on alphaEff. Each layer carries a `strain` value in
+ *   [0, 1] that *builds* while the layer holds coherence (R above a threshold)
+ *   and *recovers* while it is fragmented:
+ *
+ *     strain += (R > sundownThreshold ? +sundownRate : -sundownRecovery) * dt
+ *
+ *   That strain is then added straight into the effective phase-lag:
+ *
+ *     alphaEff = alphaBase + deltaAlpha + sundownStrength * strain
+ *
+ *   So a lock held too long tires itself past the stability edge and breaks
+ *   apart from the inside — no outside trigger needed — then recovers while
+ *   scattered. Unlike `deltaAlpha` (an instantaneous neighbour force), strain
+ *   has memory: it PERSISTS across steps and is only reset on a rebuild. The UI
+ *   shows each layer's strain as a live bar.
  * ---------------------------------------------------------------------------*/
 
 (function () {
@@ -68,6 +85,13 @@
       this.Rs = [];
       /** @type {number[]} inter-layer pressure per active layer */
       this.deltaAlpha = [];
+      /** @type {number[]} sundown strain per active layer, 0..1. Unlike the
+       * other diagnostics this is STATE, not a per-step readout: it accumulates
+       * over time and is only reset by rebuild(). */
+      this.strain = [];
+      /** @type {number[]} the sundown push (sundownStrength * strain) added to
+       * each layer's alphaEff — the strain analogue of deltaAlpha. */
+      this.deltaSundown = [];
     }
 
     /** Gaussian noise via Box-Muller, using the seeded RNG.
@@ -106,6 +130,8 @@
         }
         this.layerIdxs.push(idxs);
       }
+      /* Fatigue is per-layer memory, so a fresh structure starts un-tired. */
+      this.strain = Array.from({ length: activeLayers.length }, () => 0);
       this.t = 0;
       this.structureKey = Engine.structureKeyOf(activeLayers);
     }
@@ -138,9 +164,26 @@
       const Rs = this.layerIdxs.map((idx) => this.order(idx));
       this.Rs = Rs;
 
+      /* Sundowning — advance each layer's persistent fatigue BEFORE it feeds
+       * into alphaEff this step. Reads are guarded with sane fallbacks so a
+       * config saved before this factor existed (no sundown* keys) simply runs
+       * with zero strain rather than NaN. strain may be shorter than n if a
+       * rebuild hasn't run yet; backfill defensively. */
+      const sThresh = globals.sundownThreshold ?? 0.7;
+      const sRate = globals.sundownRate ?? 0;
+      const sRecover = globals.sundownRecovery ?? 0;
+      const sStrength = globals.sundownStrength ?? 0;
+      if (this.strain.length !== n) this.strain = Array.from({ length: n }, () => 0);
+      for (let li = 0; li < n; li++) {
+        const drift = (Rs[li] > sThresh ? sRate : -sRecover) * globals.dt;
+        this.strain[li] = Math.max(0, Math.min(1, this.strain[li] + drift));
+      }
+
       const newPhase = this.phase.slice();
       /** @type {number[]} */
       const deltaAlphas = Array.from({ length: n });
+      /** @type {number[]} */
+      const deltaSundowns = Array.from({ length: n });
 
       for (let li = 0; li < n; li++) {
         const layer = activeLayers[li];
@@ -156,7 +199,13 @@
         /* The Bick switching term — see the header comment. */
         const deltaAlpha = globals.kBias * ((1 - Rs[prev] ** 2) - (1 - Rs[next] ** 2));
         deltaAlphas[li] = deltaAlpha;
-        const alphaEff = globals.alphaBase + deltaAlpha;
+
+        /* The sundowning term — accumulated fatigue bending this layer toward
+         * release. See the header comment. */
+        const deltaSundown = sStrength * this.strain[li];
+        deltaSundowns[li] = deltaSundown;
+
+        const alphaEff = globals.alphaBase + deltaAlpha + deltaSundown;
 
         for (const i of idxs) {
           let c = 0, cnt = 0;
@@ -172,6 +221,7 @@
       }
 
       this.deltaAlpha = deltaAlphas;
+      this.deltaSundown = deltaSundowns;
       this.phase = newPhase.map(wrap);
       this.t += globals.dt;
     }

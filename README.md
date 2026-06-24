@@ -42,6 +42,12 @@ Per layer (each is just an entry in an array — see `js/config.js`):
 Globally:
 
 - **base phase-lag α**, **switching gain (kBias)**, **noise**, **speed (dt)**
+- **sundowning** — a slow, per-layer *fatigue*. A layer that holds coherence
+  for too long accumulates **strain**, which bends its phase-lag toward release
+  until the lock breaks itself apart from the inside; while fragmented it
+  recovers. Tunable via *strength* (the gain — 0 turns it off), the coherence
+  *lock threshold*, and the *build* / *recovery* rates. Each layer's live strain
+  shows as a third meter under its coherence R and neighbour-pressure Δα bars.
 
 Use **Save / load** in the sidebar to export the current setup as JSON (or paste
 one back in), or to keep named **snapshots** in the browser: click *Snapshot* to

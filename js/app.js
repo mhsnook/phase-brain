@@ -60,6 +60,11 @@
         const rEl = document.querySelector(`.meter-fill[data-meter="r"][data-layer="${id}"]`);
         if (rEl) rEl.style.width = (R * 100).toFixed(0) + '%';
 
+        /* Sundown strain — unipolar 0..1, same treatment as R. */
+        const strain = engine.strain[li] || 0;
+        const sEl = document.querySelector(`.meter-fill[data-meter="strain"][data-layer="${id}"]`);
+        if (sEl) sEl.style.width = (strain * 100).toFixed(0) + '%';
+
         /* deltaAlpha is bipolar; the track is centered. Map it onto a half-width
          * bar that grows left (negative) or right (positive). Typical range is
          * roughly +/- kBias, so normalise against a sensible span. */
