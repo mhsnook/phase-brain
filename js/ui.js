@@ -122,7 +122,7 @@
             <div class="meters">
               <${Meter} layerId=${layer.id} kind="r" label="coherence R" color=${layer.color} />
               <${Meter} layerId=${layer.id} kind="da" label="neighbour pressure Δα" color=${layer.color} />
-              <${Meter} layerId=${layer.id} kind="strain" label="sundown strain" color=${layer.color} />
+              <${Meter} layerId=${layer.id} kind="strain" label="sundown strain" color="#E0566B" />
             </div>
             <${Field} label="frequency" value=${layer.freq} min=${0.2} max=${10} step=${0.1}
                       format=${(v) => v.toFixed(2)} onInput=${(v) => patchLayer(layer.id, { freq: v })} />
