@@ -122,6 +122,7 @@
             <div class="meters">
               <${Meter} layerId=${layer.id} kind="r" label="coherence R" color=${layer.color} />
               <${Meter} layerId=${layer.id} kind="da" label="neighbour pressure Δα" color=${layer.color} />
+              <${Meter} layerId=${layer.id} kind="strain" label="sundown strain" color="#E0566B" />
             </div>
             <${Field} label="frequency" value=${layer.freq} min=${0.2} max=${10} step=${0.1}
                       format=${(v) => v.toFixed(2)} onInput=${(v) => patchLayer(layer.id, { freq: v })} />
@@ -154,6 +155,15 @@
                   format=${(v) => v.toFixed(2)} onInput=${(v) => setGlobal('freqNoise', v)} />
         <${Field} label="speed (dt)" value=${globals.dt} min=${0.002} max=${0.05} step=${0.002}
                   format=${(v) => v.toFixed(3)} onInput=${(v) => setGlobal('dt', v)} />
+        <h3 class="sub">Sundowning <span class="sub-hint">layer fatigue</span></h3>
+        <${Field} label="strength" value=${globals.sundownStrength} min=${0} max=${2.5} step=${0.05}
+                  format=${(v) => v.toFixed(2)} onInput=${(v) => setGlobal('sundownStrength', v)} />
+        <${Field} label="lock threshold (R)" value=${globals.sundownThreshold} min=${0.3} max=${0.95} step=${0.01}
+                  format=${(v) => v.toFixed(2)} onInput=${(v) => setGlobal('sundownThreshold', v)} />
+        <${Field} label="build rate" value=${globals.sundownRate} min=${0} max=${1} step=${0.05}
+                  format=${(v) => v.toFixed(2)} onInput=${(v) => setGlobal('sundownRate', v)} />
+        <${Field} label="recovery rate" value=${globals.sundownRecovery} min=${0} max=${1} step=${0.05}
+                  format=${(v) => v.toFixed(2)} onInput=${(v) => setGlobal('sundownRecovery', v)} />
       </div>
     `;
   }

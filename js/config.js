@@ -67,13 +67,35 @@
       /* dt — simulation timestep per frame. Doubles as a "speed" control:
        * bigger dt = faster (but coarser) evolution. */
       dt: 1 / 60,
+
+      /* SUNDOWNING — a slow, per-layer fatigue. Each layer accumulates "strain"
+       * while it holds coherence and sheds it while fragmented; that strain then
+       * bends its phase-lag toward release, so a lock held too long breaks itself
+       * apart from the inside. See engine.js for the equation. Set
+       * sundownStrength to 0 to switch the whole effect off. */
+
+      /* sundownThreshold — the coherence R above which a layer counts as
+       * "locked" and starts to tire. Below it, the layer recovers instead. */
+      sundownThreshold: 0.7,
+
+      /* sundownRate — how fast strain builds (per second) while a layer is
+       * above the threshold. */
+      sundownRate: 0.3,
+
+      /* sundownRecovery — how fast strain fades (per second) while a layer is
+       * fragmented. Lower than the build rate, so fatigue lingers. */
+      sundownRecovery: 0.15,
+
+      /* sundownStrength — how hard a fully-strained layer (strain = 1) pushes
+       * its own phase-lag toward fragmentation. This is the gain on the whole
+       * effect; 0 disables sundowning entirely. */
+      sundownStrength: Math.PI * 0.6,
     },
   };
 
   /* Defaults used when the user clicks "add layer". Colours cycle through this
    * palette so new layers are visually distinct without manual picking. */
-  PhaseBrain.NEW_LAYER_PALETTE = [
-    '#5DCAA5', '#8C82E6', '#E0A33C', '#CC44CC',
+  PhaseBrain.NEW_LAYER_PALETTE = [    '#5DCAA5', '#8C82E6', '#E0A33C', '#CC44CC',
     '#E85D75', '#4FA8E0', '#E0C84F', '#7DD06A',
   ];
 
@@ -92,15 +114,41 @@
     return { id: 'layer' + i, name: 'New layer ' + i, color, enabled: true, count: 6, freq: 3.0, coupling: 1.0 };
   };
 
+  /* Fallback values for any global that a loaded config is MISSING — i.e. the
+   * migration defaults for configs saved before a knob existed. These match
+   * defaultConfig.globals, so a config saved before sundowning existed comes
+   * alive with the same default sundowning a fresh config gets (strength
+   * PI*0.6). With only a couple of users we'd rather everyone meet the effect;
+   * anyone who wants the old quiet behaviour can just drag strength back to 0.
+   *
+   * Key order here is the canonical global order; cloneConfig lays the keys down
+   * in this order so JSON.stringify stays stable for the dirty/match comparisons
+   * in the UI.
+   * @type {GlobalsConfig} */
+  PhaseBrain.GLOBAL_FALLBACKS = {
+    alphaBase: Math.PI / 2 - 0.1,
+    kBias: Math.PI / 4,
+    freqNoise: 0.1,
+    dt: 1 / 60,
+    sundownThreshold: 0.7,
+    sundownRate: 0.3,
+    sundownRecovery: 0.15,
+    sundownStrength: Math.PI * 0.6,
+  };
+
   /**
    * A deep-ish clone so the live config never shares references with defaults.
+   * Doubles as the migration point: any global missing from `cfg` (e.g. a
+   * snapshot saved before sundowning existed) is backfilled from
+   * GLOBAL_FALLBACKS, so every config that reaches the engine and the sidebar
+   * has the full set of knobs present.
    * @param {SimConfig} cfg
    * @returns {SimConfig}
    */
   PhaseBrain.cloneConfig = function (cfg) {
     return {
       layers: cfg.layers.map((l) => Object.assign({}, l)),
-      globals: Object.assign({}, cfg.globals),
+      globals: Object.assign({}, PhaseBrain.GLOBAL_FALLBACKS, cfg.globals),
     };
   };
 
@@ -132,6 +180,11 @@
         kBias: quant(span(0.1, 1.2), 0.01),
         freqNoise: quant(span(0.03, 0.3), 0.01),
         dt: quant(span(0.01, 0.03), 0.002),
+        sundownThreshold: quant(span(0.55, 0.85), 0.01),
+        sundownRate: quant(span(0.1, 0.5), 0.05),
+        sundownRecovery: quant(span(0.05, 0.3), 0.05),
+        /* Low end stays at 0 so a jumble can occasionally turn sundowning off. */
+        sundownStrength: quant(span(0, 2.5), 0.05),
       },
     };
   };
