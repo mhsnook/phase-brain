@@ -115,13 +115,11 @@
   };
 
   /* Fallback values for any global that a loaded config is MISSING — i.e. the
-   * migration defaults for configs saved before a knob existed. These are
-   * deliberately NOT identical to defaultConfig.globals: a fresh default turns
-   * sundowning ON (strength = PI*0.6), but a config saved before sundowning
-   * existed should keep behaving exactly as it did — so its fallback strength is
-   * 0 (the effect is a no-op) while still being PRESENT and tunable. The
-   * threshold/rate/recovery fallbacks use sensible non-zero values so that
-   * dialing strength up immediately does something.
+   * migration defaults for configs saved before a knob existed. These match
+   * defaultConfig.globals, so a config saved before sundowning existed comes
+   * alive with the same default sundowning a fresh config gets (strength
+   * PI*0.6). With only a couple of users we'd rather everyone meet the effect;
+   * anyone who wants the old quiet behaviour can just drag strength back to 0.
    *
    * Key order here is the canonical global order; cloneConfig lays the keys down
    * in this order so JSON.stringify stays stable for the dirty/match comparisons
@@ -135,7 +133,7 @@
     sundownThreshold: 0.7,
     sundownRate: 0.3,
     sundownRecovery: 0.15,
-    sundownStrength: 0,
+    sundownStrength: Math.PI * 0.6,
   };
 
   /**

@@ -13,7 +13,7 @@ describe('config', () => {
     expect(PB.defaultConfig.globals.dt).not.toBe(999);
   });
 
-  it('backfills missing globals (migrating a pre-sundowning config) as present but off', () => {
+  it('backfills missing globals (migrating a pre-sundowning config) to the defaults', () => {
     // A config saved before sundowning existed: only the original four globals.
     const old = {
       layers: PB.cloneConfig(PB.defaultConfig).layers,
@@ -24,11 +24,9 @@ describe('config', () => {
     for (const key of ['sundownThreshold', 'sundownRate', 'sundownRecovery', 'sundownStrength']) {
       expect(typeof migrated.globals[key]).toBe('number');
     }
-    // ...but the effect is a no-op: zero strength preserves old behaviour.
-    expect(migrated.globals.sundownStrength).toBe(0);
-    // ...while the supporting knobs are sensible non-zero values, so turning the
-    // strength up later immediately does something.
-    expect(migrated.globals.sundownRate).toBeGreaterThan(0);
+    // ...and the effect comes alive with the default strength — anyone who wants
+    // the old quiet behaviour can drag it back to 0.
+    expect(migrated.globals.sundownStrength).toBeCloseTo(Math.PI * 0.6, 10);
     // Existing globals are untouched.
     expect(migrated.globals.alphaBase).toBe(1.2);
   });
