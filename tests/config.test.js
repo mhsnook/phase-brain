@@ -13,6 +13,31 @@ describe('config', () => {
     expect(PB.defaultConfig.globals.dt).not.toBe(999);
   });
 
+  it('backfills missing globals (migrating a pre-sundowning config) as present but off', () => {
+    // A config saved before sundowning existed: only the original four globals.
+    const old = {
+      layers: PB.cloneConfig(PB.defaultConfig).layers,
+      globals: { alphaBase: 1.2, kBias: 0.5, freqNoise: 0.1, dt: 1 / 60 },
+    };
+    const migrated = PB.cloneConfig(old);
+    // Every sundown knob is now PRESENT (so the sliders render, no undefined).
+    for (const key of ['sundownThreshold', 'sundownRate', 'sundownRecovery', 'sundownStrength']) {
+      expect(typeof migrated.globals[key]).toBe('number');
+    }
+    // ...but the effect is a no-op: zero strength preserves old behaviour.
+    expect(migrated.globals.sundownStrength).toBe(0);
+    // ...while the supporting knobs are sensible non-zero values, so turning the
+    // strength up later immediately does something.
+    expect(migrated.globals.sundownRate).toBeGreaterThan(0);
+    // Existing globals are untouched.
+    expect(migrated.globals.alphaBase).toBe(1.2);
+  });
+
+  it('keeps sundowning ON for a fresh default config (does not clobber present keys)', () => {
+    const fresh = PB.cloneConfig(PB.defaultConfig);
+    expect(fresh.globals.sundownStrength).toBeCloseTo(Math.PI * 0.6, 10);
+  });
+
   it('makeNewLayer creates a unique id and a fully-formed layer', () => {
     const existing = PB.cloneConfig(PB.defaultConfig).layers;
     const fresh = PB.makeNewLayer(existing);

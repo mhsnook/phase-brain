@@ -51,9 +51,14 @@
   }
 
   PhaseBrain.snapshots = {
-    /** All saved snapshots, newest first. @returns {Snapshot[]} */
+    /** All saved snapshots, newest first. Each config is run through
+     * cloneConfig, which backfills any globals missing from an older snapshot
+     * (e.g. one saved before sundowning existed) — so the UI sees a complete,
+     * tunable config and the active-snapshot highlight still matches. */
     list() {
-      return readAll().slice().reverse();
+      return readAll().slice().reverse().map((s) =>
+        Object.assign({}, s, { config: PhaseBrain.cloneConfig(s.config) })
+      );
     },
 
     save: saveSnap,
